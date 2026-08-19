@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Project Sites — 3D Map</title>
+
+    <!-- CesiumJS -->
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.132/Build/Cesium/Cesium.js"></script>
+    <link
+        href="https://cesium.com/downloads/cesiumjs/releases/1.132/Build/Cesium/Widgets/widgets.css"
+        rel="stylesheet"
+    >
+    <script src="./assets/js/helpers.js?a"></script>
+    <script src="./assets/js/orbiter.js"></script>
+    <script src="./assets/js/slideshow.js?a1"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        html,
+        body,
+        #cesiumContainer {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        .header {
+            position: absolute;
+            z-index: 10;
+            top: 20px;
+            left: 20px;
+            padding: 14px 18px;
+            background: rgba(20, 25, 35, 0.88);
+            color: white;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 5px 25px rgba(0,0,0,.25);
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+        }
+        .header p {
+            margin: 4px 0 0;
+            font-size: 12px;
+            opacity: .7;
+        }
+        .panel {
+            position: absolute;
+            z-index: 10;
+            top: 20px;
+            right: 20px;
+            width: 230px;
+            padding: 16px;
+            background: rgba(20, 25, 35, .88);
+            color: white;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 5px 25px rgba(0,0,0,.25);
+        }
+        .panel h2 {
+            margin: 0 0 12px;
+            font-size: 14px;
+        }
+        .filter {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .filter input {
+            cursor: pointer;
+        }
+        .site-info {
+            position: absolute;
+            z-index: 20;
+            left: 50%;
+            bottom: 25px;
+            transform: translateX(-50%);
+            min-width: 300px;
+            max-width: 450px;
+            padding: 18px;
+            background: rgba(20, 25, 35, .94);
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,.35);
+            display: none;
+        }
+        .site-info h2 {
+            margin: 0 0 8px;
+            font-size: 18px;
+        }
+        .site-info p {
+            margin: 5px 0;
+            font-size: 13px;
+            opacity: .85;
+        }
+        .close {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            border: none;
+            background: transparent;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        /* Hide Cesium logo if desired */
+        .cesium-viewer-bottom {
+            display: none;
+        }
+    </style>
+    <script src="./assets/data/sites.js"></script>
+</head>
+
+<body>
+
+    <!-- ============================
+         MAP
+    ============================= -->
+    <div id="cesiumContainer"></div>
+<script>
+    /* ============================================================
+       CESIUM CONFIGURATION
+    ============================================================ */
+    Cesium.Ion.defaultAccessToken =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1Y2U1OGZjNi1kZDQ4LTQ2OTAtYjJlNy00Zjk0M2JkMjIwZjEiLCJpZCI6NDQ1MzU1LCJzdWIiOiJUcm9waWthbEtuaWdodCIsImlzcyI6Imh0dHBzOi8vYXBpLmNlc2l1bS5jb20iLCJhdWQiOiJQb3dlcnBvaW50IC0gQUlIU1MgUHJlc2VudGF0aW9uIiwiaWF0IjoxNzg2NDk0NTU1fQ.kwzqD8w2hM8pzKcMrkefgXTs1sc_iJg4zNz_ve6shL8";
+    /* ============================================================
+       CREATE VIEWER
+    ============================================================ */
+
+    const viewer = new Cesium.Viewer(
+        "cesiumContainer",
+        {
+            terrain: Cesium.Terrain.fromWorldTerrain({
+                requestWaterMask: true,
+                requestVertexNormals: true,
+            }),
+            animation: false,
+            timeline: false,
+            baseLayerPicker: false,
+            geocoder: true,
+            homeButton: false,
+            navigationHelpButton: false,
+            sceneModePicker: false
+        }
+    );
+    const layers = viewer.imageryLayers;
+    const googleTiles = Cesium.ImageryLayer.fromProviderAsync(
+        Cesium.IonImageryProvider.fromAssetId(2)
+    );
+    layers.add(googleTiles);
+    /* ============================================================
+       CREATE SITE MARKERS
+    ============================================================ */
+    /*
+    const siteEntities = [];
+    sites.forEach(site => {
+        const entity = viewer.entities.add({
+            name: site.name,
+            position:
+                Cesium.Cartesian3.fromDegrees(
+                    site.longitude,
+                    site.latitude,
+                    100
+                ),
+            point: {
+                pixelSize: 12,
+                heightReference:
+                    Cesium.HeightReference.CLAMP_TO_GROUND,
+                outlineWidth: 2
+            },
+            label: {
+                text: site.name,
+                font: "13px Arial",
+                pixelOffset: new Cesium.Cartesian2(0, -20),
+                showBackground: true,
+                backgroundPadding: new Cesium.Cartesian2(6, 4),
+                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0,500000)
+            },
+            properties: {
+                province: site.province,
+                district: site.district,
+                project: site.project,
+                facility: site.facility
+            }
+        });
+        siteEntities.push({
+            entity: entity,
+            project: site.project,
+            data: site
+        });
+    });
+    */
+    /* ============================================================
+       CLICK HANDLER
+    ============================================================ */
+
+    const handler =
+        new Cesium.ScreenSpaceEventHandler(
+            viewer.scene.canvas
+        );
+
+    handler.setInputAction(
+        function(click) {
+            rpSlideshow.nextFrame();
+            const picked =
+                viewer.scene.pick(click.position);
+            if (
+                !Cesium.defined(picked) ||
+                !picked.id
+            ) {
+                return;
+            }
+            const entity = picked.id;
+            if (!entity.properties) {
+                return;
+            }
+            
+            //showSiteInfo(entity);
+        },
+        Cesium.ScreenSpaceEventType.LEFT_CLICK
+    );
+
+    document.addEventListener("DOMContentLoaded", async function(event) {
+        // Your code to run since DOM is loaded and ready
+        rpSlideshow.boundaries = await loadExtrudedGeoJSON("data/central_northern.geojson", {
+            height: 5000,
+            stroke:
+                Cesium.Color.WHITE.withAlpha(0.9),
+            strokeWidth: 2,
+            fill:
+                Cesium.Color.CYAN.withAlpha(0.08),
+            showLabels: true,
+            labelField: "ELECTORATE"
+        });
+        // Add HQ
+        const HQ = viewer.entities.add({
+            name: 'Iaraguma HAUS',
+            position:
+                Cesium.Cartesian3.fromDegrees(
+                     147.18670846936985,-9.448505339049383,
+                    100
+                ),
+            point: {
+                pixelSize: 12,
+                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+                color: Cesium.Color.RED,
+                outlineWidth: 2
+            },
+            label: {
+                text: "Iaraguma Haus",
+                font: "13px Arial",
+                pixelOffset: new Cesium.Cartesian2(0, -20),
+                showBackground: true,
+                backgroundPadding: new Cesium.Cartesian2(6, 4),
+                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0,500000)
+            }
+        });
+        /*const entity = viewer.entities.add({
+            position: Cesium.Cartesian3.fromDegrees( 147.18670846936985,-9.448505339049383),
+            model: {
+                uri: "assets/3d/flag.glb",
+            },
+            clampToGround: true
+        });*/
+        rpSlideshow.facilities = await loadGeoJSON("data/all_hfs_central_northern.geojson");
+        let hfs = styleHealthFacilities(rpSlideshow.facilities);
+        let districtLabelOptions = {font: "bold 26px Arial"};
+        rpSlideshow.districtLabels['rigo'] = addDistrictLabel("Rigo District",147.82553528201558,-9.707219928888083,districtLabelOptions);
+        rpSlideshow.districtLabels['goilala'] = addDistrictLabel("Goilala District",147.02768146274363,-8.301702546937475,districtLabelOptions);
+        rpSlideshow.districtLabels['abau'] = addDistrictLabel("Abau District",148.82126210098562,-10.05105577298389,districtLabelOptions);
+        rpSlideshow.districtLabels['kairuku'] = addDistrictLabel("Kairuku District",146.73072345379538,-8.709046278253485,districtLabelOptions);
+        rpSlideshow.districtLabels['hiri'] = addDistrictLabel("Hiri-Koiari District",147.3828246183575,-9.167064756451545,districtLabelOptions);
+        rpSlideshow.districtLabels['ijivitari'] = addDistrictLabel("Ijivitari District", 148.59501782120023,-9.391904075111723,districtLabelOptions);
+        rpSlideshow.districtLabels['sohe'] = addDistrictLabel("Sohe District", 147.80394103118925,-8.49313540441848,districtLabelOptions);
+        rpSlideshow.districtLabels['popondetta'] = addDistrictLabel("Popondetta District", 148.4611,-8.8970,districtLabelOptions);
+        rpSlideshow.applyFrame();
+    });
+    
+</script>
+</body>
+</html>
+
